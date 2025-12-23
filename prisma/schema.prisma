@@ -1,0 +1,80 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Invoice {
+  id               String        @id @default(uuid())
+  userId           String?
+  number           String        @unique
+  date             DateTime
+  dueDate          DateTime
+  status           InvoiceStatus @default(DRAFT)
+  totalAmount      Float
+  currency         String        @default("EUR")
+  paymentLink      String?
+  stripePaymentId  String?
+  paymentStatus    String?        @default("PENDING")
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  client      Client?       @relation(fields: [clientId], references: [id])
+  clientId    String?
+  items       InvoiceItem[]
+
+  @@index([userId])
+  @@index([clientId])
+  @@index([stripePaymentId])
+}
+
+model Client {
+  id        String    @id @default(uuid())
+  name      String
+  email     String?
+  address   String?
+  vatNumber String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  invoices Invoice[]
+
+  @@index([email])
+}
+
+model InvoiceItem {
+  id          String   @id @default(uuid())
+  description String
+  quantity    Float
+  unitPrice   Float
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  invoice    Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  invoiceId  String
+
+  @@index([invoiceId])
+}
+
+model Product {
+  id           String   @id @default(uuid())
+  name         String
+  description  String?
+  defaultPrice Float
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([name])
+}
+
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  PAID
+}
