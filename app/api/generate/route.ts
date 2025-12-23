@@ -3,9 +3,20 @@ import OpenAI from 'openai';
 import { Invoice } from '@/lib/types';
 import { prisma } from '@/lib/db';
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+// Lazy initialization to avoid build-time errors
+let openai: OpenAI | null = null;
+
+function getOpenAI() {
+  if (!openai) {
+    if (!process.env.OPENAI_API_KEY) {
+      throw new Error('OPENAI_API_KEY is not configured');
+    }
+    openai = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY,
+    });
+  }
+  return openai;
+}
 
 const getSystemPrompt = (knowledgeBase: string) => `Tu es un assistant intelligent qui aide à créer et modifier des factures à partir de conversations naturelles en français.
 
@@ -158,7 +169,7 @@ ${invoiceItems.length > 0
 
     let completion;
     try {
-      completion = await openai.chat.completions.create({
+      completion = await getOpenAI().chat.completions.create({
         model: 'gpt-4o',
         messages: [
           { role: 'system', content: systemPrompt },
