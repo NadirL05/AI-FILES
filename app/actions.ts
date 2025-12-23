@@ -7,7 +7,18 @@ import { revalidatePath } from 'next/cache';
 import { Resend } from 'resend';
 import { createStripePaymentLink } from '@/lib/stripe';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+// Lazy initialization to avoid build-time errors
+let resend: Resend | null = null;
+
+function getResend() {
+  if (!resend) {
+    if (!process.env.RESEND_API_KEY) {
+      throw new Error('RESEND_API_KEY is not configured');
+    }
+    resend = new Resend(process.env.RESEND_API_KEY);
+  }
+  return resend;
+}
 
 export async function saveInvoice(invoiceData: Invoice) {
   try {
@@ -308,7 +319,7 @@ export async function sendInvoiceEmail(invoiceId: string, email: string) {
     `.trim();
 
     // Envoyer l'email via Resend
-    const { data, error } = await resend.emails.send({
+    const { data, error } = await getResend().emails.send({
       from: 'onboarding@resend.dev',
       to: email,
       subject: `Facture disponible : ${invoice.number}`,

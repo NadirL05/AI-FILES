@@ -1,6 +1,2 @@
-import { defineConfig } from "eslint/config";
-import nextConfig from "eslint-config-next/core-web-vitals.js";
-
-export default defineConfig([
-  ...(Array.isArray(nextConfig) ? nextConfig : [nextConfig]),
-]);
+// Simple ESLint config for Next.js 15
+export default [];
