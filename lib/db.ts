@@ -1,9 +1,4 @@
-import { PrismaClient } from '@prisma/client';
-
-const globalForPrisma = globalThis as unknown as {
-  prisma: PrismaClient | undefined;
-};
-
+'use server';
 // Configuration optimisée pour Vercel serverless avec gestion des prepared statements
 // Solution pour l'erreur "prepared statement already exists" (42P05)
 export const prisma =
