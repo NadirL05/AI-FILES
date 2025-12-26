@@ -1,6 +1,6 @@
 'use server';
 
-import { prisma, prismaQuery } from '@/lib/db';
+import { prisma } from '@/lib/db';
 import { Invoice } from '@/lib/types';
 import {
   calculateSubtotal,
