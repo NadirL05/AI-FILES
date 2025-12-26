@@ -7,7 +7,6 @@ import { revalidatePath } from 'next/cache';
 import { Resend } from 'resend';
 import { createStripePaymentLink } from '@/lib/stripe';
 
-// Lazy initialization to avoid build-time errors
 let resend: Resend | null = null;
 
 function getResend() {
