@@ -1,6 +1,6 @@
 'use server';
 
-import { prismah , prismaQuery from '@/lib/db';
+import { prisma, prismaQuery } from '@/lib/db';
 import { Invoice } from '@/lib/types';
 import { calculateSubtotal, calculateTax, calculateTotal, formatCurrency } from '@/lib/calculations';
 import { revalidatePath } from 'next/cache';
