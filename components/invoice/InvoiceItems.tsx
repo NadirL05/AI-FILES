@@ -1,12 +1,12 @@
 import { Invoice } from '@/lib/types';
 import { calculateLineTotal } from '@/lib/calculations';
 
-interface InvoiceItemsProps {
+type InvoiceItemsProps = {
   items: Invoice['items'];
   currency: Invoice['currency'];
-}
+};
 
-export function InvoiceItems({ items, currency }: InvoiceItemsProps) {
+export const InvoiceItems = ({ items, currency }: InvoiceItemsProps) => {
   if (items.length === 0) {
     return (
       <div className="py-8 text-center text-gray-500">
@@ -64,5 +64,5 @@ export function InvoiceItems({ items, currency }: InvoiceItemsProps) {
       </table>
     </div>
   );
-}
+};
 

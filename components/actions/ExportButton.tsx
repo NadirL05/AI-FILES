@@ -6,7 +6,9 @@ import { useInvoiceStore } from '@/lib/store';
 import { generatePDF } from '@/lib/pdf-generator';
 import { toast } from 'sonner';
 
-export function ExportButton() {
+type ExportButtonProps = Record<string, never>;
+
+export const ExportButton = (_props: ExportButtonProps) => {
   const invoice = useInvoiceStore((state) => state.invoice);
 
   const handleExport = async () => {
@@ -28,5 +30,5 @@ export function ExportButton() {
       Télécharger PDF
     </Button>
   );
-}
+};
 

@@ -5,7 +5,8 @@ import { Users, Plus, Mail, MapPin, FileText } from 'lucide-react';
 import Link from 'next/link';
 
 export default async function ClientsPage() {
-  const clients = await getAllClients();
+  const clientsData = await getAllClients();
+  const clients = clientsData.clients || [];
 
   return (
     <div className="min-h-screen bg-gray-50">

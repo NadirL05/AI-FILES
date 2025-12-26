@@ -6,7 +6,9 @@ import { Button } from '@/components/ui/button';
 import { Mic, MicOff, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
-export function VoiceRecorder() {
+type VoiceRecorderProps = Record<string, never>;
+
+export const VoiceRecorder = (_props: VoiceRecorderProps) => {
   const [isRecording, setIsRecording] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -127,5 +129,5 @@ export function VoiceRecorder() {
       )}
     </Button>
   );
-}
+};
 

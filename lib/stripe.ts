@@ -10,13 +10,13 @@ if (process.env.STRIPE_SECRET_KEY) {
 
 export { stripe };
 
-export interface CreatePaymentLinkParams {
+export type CreatePaymentLinkParams = {
   amount: number; // Amount in cents
   currency: string;
   description: string;
   invoiceNumber: string;
   clientEmail?: string;
-}
+};
 
 export async function createStripePaymentLink({
   amount,

@@ -31,6 +31,26 @@ Ce document liste toutes les variables d'environnement nécessaires pour faire f
 **Où la trouver** : https://dashboard.stripe.com/apikeys  
 **Note** : Si cette variable n'est pas configurée, les liens de paiement ne seront pas générés automatiquement, mais l'application fonctionnera quand même.
 
+### 5. RESEND_FROM_EMAIL
+**Description** : Adresse email d'expéditeur personnalisée pour Resend  
+**Format** : `noreply@votredomaine.com`  
+**Exemple** : `noreply@voiceinvoice.com`  
+**Note** : Si cette variable n'est pas configurée, l'email par défaut `onboarding@resend.dev` sera utilisé. Pour utiliser votre propre domaine, vous devez d'abord le vérifier dans Resend.
+
+### 6. UPSTASH_REDIS_REST_URL
+**Description** : URL de l'API REST Upstash Redis pour le rate limiting distribué  
+**Format** : `https://xxxxx.upstash.io`  
+**Exemple** : `https://usw1-xxxxx-xxxxx.upstash.io`  
+**Où la trouver** : https://console.upstash.com/redis  
+**Note** : Si cette variable n'est pas configurée, un rate limiter en mémoire sera utilisé (moins précis mais fonctionnel).
+
+### 7. UPSTASH_REDIS_REST_TOKEN
+**Description** : Token d'authentification pour l'API REST Upstash Redis  
+**Format** : `AXxxxxx...`  
+**Exemple** : `AXxxxxxACQgYjE5YjYzYzAtYjE5YjYzYzAtYjE5YjYzYzAtYjE5YjYzYzA`  
+**Où la trouver** : https://console.upstash.com/redis (même page que UPSTASH_REDIS_REST_URL)  
+**Note** : Doit être configuré avec `UPSTASH_REDIS_REST_URL` pour activer le rate limiting distribué.
+
 ## Configuration dans Vercel
 
 1. Allez sur https://vercel.com

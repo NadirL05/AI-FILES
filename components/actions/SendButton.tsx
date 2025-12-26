@@ -16,13 +16,14 @@ import { Label } from '@/components/ui/label';
 import { Send, Loader2 } from 'lucide-react';
 import { sendInvoiceEmail } from '@/app/actions';
 import { toast } from 'sonner';
+import { isValidEmail } from '@/lib/validation';
 
-interface SendButtonProps {
+type SendButtonProps = {
   invoiceId: string | null;
   clientEmail?: string;
-}
+};
 
-export function SendButton({ invoiceId, clientEmail }: SendButtonProps) {
+export const SendButton = ({ invoiceId, clientEmail }: SendButtonProps) => {
   const [open, setOpen] = useState(false);
   const [email, setEmail] = useState(clientEmail || '');
   const [isSending, setIsSending] = useState(false);
@@ -40,7 +41,8 @@ export function SendButton({ invoiceId, clientEmail }: SendButtonProps) {
   }
 
   const handleSend = async () => {
-    if (!email || !email.includes('@')) {
+    // Validation email améliorée côté client
+    if (!email || !isValidEmail(email)) {
       toast.error('Veuillez entrer une adresse email valide');
       return;
     }
@@ -118,5 +120,5 @@ export function SendButton({ invoiceId, clientEmail }: SendButtonProps) {
       </DialogContent>
     </Dialog>
   );
-}
+};
 

@@ -8,7 +8,9 @@ import { Send, Loader2 } from 'lucide-react';
 import { VoiceRecorder } from './VoiceRecorder';
 import { toast } from 'sonner';
 
-export function ChatInput() {
+type ChatInputProps = Record<string, never>;
+
+export const ChatInput = (_props: ChatInputProps) => {
   const [input, setInput] = useState('');
   const { invoice, addMessage, updateInvoice, setProcessingState, setError } =
     useInvoiceStore();
@@ -30,6 +32,12 @@ export function ChatInput() {
   const handleSubmit = async (text?: string) => {
     const message = text || input.trim();
     if (!message || isSubmitting) return;
+
+    // Validation de la longueur du message (max 5000 caractères)
+    if (message.length > 5000) {
+      toast.error('Le message est trop long (maximum 5000 caractères)');
+      return;
+    }
 
     const messageToSend = message;
     setInput('');
@@ -103,5 +111,5 @@ export function ChatInput() {
       </div>
     </div>
   );
-}
+};
 

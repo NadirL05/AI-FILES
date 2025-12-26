@@ -5,7 +5,9 @@ import { useInvoiceStore } from '@/lib/store';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card } from '@/components/ui/card';
 
-export function ChatHistory() {
+type ChatHistoryProps = Record<string, never>;
+
+export const ChatHistory = (_props: ChatHistoryProps) => {
   const messages = useInvoiceStore((state) => state.messages);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -68,5 +70,5 @@ export function ChatHistory() {
       </div>
     </ScrollArea>
   );
-}
+};
 

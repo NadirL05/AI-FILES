@@ -1,16 +1,20 @@
 'use server';
 
 import { prisma } from '@/lib/db';
-import { Invoice } from '@/lib/types';
-import {
-  calculateSubtotal,
-  calculateTax,
-  calculateTotal,
-  formatCurrency,
-} from '@/lib/calculations';
+import { Invoice, InvoiceStatusMap } from '@/lib/types';
+import { calculateSubtotal, calculateTax, calculateTotal, formatCurrency } from '@/lib/calculations';
 import { revalidatePath } from 'next/cache';
 import { Resend } from 'resend';
 import { createStripePaymentLink } from '@/lib/stripe';
+import {
+  emailSchema,
+  amountSchema,
+  taxRateSchema,
+  currencySchema,
+  invoiceItemSchema,
+  escapeHtml,
+  isValidEmail,
+} from '@/lib/validation';
 
 let resend: Resend | null = null;
 
@@ -46,10 +50,52 @@ export async function saveInvoice(invoiceData: Invoice) {
       };
     }
 
+    // Validation des items et montants
+    try {
+      invoiceData.items.forEach((item) => {
+        invoiceItemSchema.parse(item);
+      });
+    } catch (validationError) {
+      return {
+        success: false,
+        error: 'Les items de la facture contiennent des données invalides',
+      };
+    }
+
+    // Validation du taux de TVA
+    try {
+      taxRateSchema.parse(invoiceData.taxRate);
+    } catch (validationError) {
+      return {
+        success: false,
+        error: 'Le taux de TVA doit être entre 0 et 100%',
+      };
+    }
+
+    // Validation de la devise
+    try {
+      currencySchema.parse(invoiceData.currency);
+    } catch (validationError) {
+      return {
+        success: false,
+        error: 'La devise doit être EUR ou USD',
+      };
+    }
+
     // Calculer le totalAmount
     const subtotal = calculateSubtotal(invoiceData.items);
     const tax = calculateTax(subtotal, invoiceData.taxRate);
     const totalAmount = calculateTotal(subtotal, tax);
+
+    // Validation du montant total
+    try {
+      amountSchema.parse(totalAmount);
+    } catch (validationError) {
+      return {
+        success: false,
+        error: 'Le montant total de la facture est invalide',
+      };
+    }
 
     // Chercher ou créer le client (par nom)
     let client = await prisma.client.findFirst({
@@ -85,26 +131,42 @@ export async function saveInvoice(invoiceData: Invoice) {
       }
     }
 
-    // Générer un numéro de facture unique
+    // Générer un numéro de facture unique de manière plus sécurisée
     // Format: INV-YYYYMMDD-XXXX (où XXXX est un nombre aléatoire)
     const datePrefix = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-    const randomSuffix = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
-    const invoiceNumber = `INV-${datePrefix}-${randomSuffix}`;
+    let finalInvoiceNumber: string;
+    let attempts = 0;
+    const maxAttempts = 10;
 
-    // Vérifier que le numéro n'existe pas déjà (peu probable mais sécurité)
-    let finalInvoiceNumber = invoiceNumber;
-    const existingInvoice = await prisma.invoice.findUnique({
-      where: { number: invoiceNumber },
-    });
+    do {
+      // Utiliser crypto.randomUUID pour plus de sécurité
+      const randomBytes = crypto.getRandomValues(new Uint8Array(2));
+      const randomSuffix = Array.from(randomBytes)
+        .map((b) => b.toString(16).padStart(2, '0'))
+        .join('')
+        .substring(0, 4)
+        .padStart(4, '0');
+      finalInvoiceNumber = `INV-${datePrefix}-${randomSuffix}`;
 
-    if (existingInvoice) {
-      // Si le numéro existe, générer un nouveau
-      const newRandomSuffix = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
-      finalInvoiceNumber = `INV-${datePrefix}-${newRandomSuffix}`;
-    }
+      const existingInvoice = await prisma.invoice.findUnique({
+        where: { number: finalInvoiceNumber },
+      });
 
-    // Convertir le status de l'Invoice type vers InvoiceStatus enum
-    const invoiceStatus = invoiceData.status === 'finalized' ? 'SENT' : 'DRAFT';
+      if (!existingInvoice) {
+        break;
+      }
+
+      attempts++;
+      if (attempts >= maxAttempts) {
+        return {
+          success: false,
+          error: 'Impossible de générer un numéro de facture unique',
+        };
+      }
+    } while (attempts < maxAttempts);
+
+    // Convertir le status de l'Invoice type vers InvoiceStatus map
+    const invoiceStatus = invoiceData.status === 'finalized' ? InvoiceStatusMap.SENT : InvoiceStatusMap.DRAFT;
 
     // Générer le lien de paiement Stripe automatiquement
     let paymentLink: string | undefined;
@@ -243,6 +305,16 @@ export async function getDashboardStats() {
 
 export async function sendInvoiceEmail(invoiceId: string, email: string) {
   try {
+    // Validation de l'email côté serveur
+    try {
+      emailSchema.parse(email);
+    } catch (validationError) {
+      return {
+        success: false,
+        error: 'Adresse email invalide',
+      };
+    }
+
     // Vérifier que la facture existe
     const invoice = await prisma.invoice.findUnique({
       where: { id: invoiceId },
@@ -274,42 +346,50 @@ export async function sendInvoiceEmail(invoiceId: string, email: string) {
     const amountFormatted = formatCurrency(invoice.totalAmount, invoice.currency as 'EUR' | 'USD');
     const paymentLink = invoice.paymentLink || null;
 
-    // Générer le contenu HTML de l'email
+    // Sanitization XSS : échapper toutes les variables utilisées dans le HTML
+    const safeInvoiceNumber = escapeHtml(invoice.number);
+    const safeClientName = invoice.client?.name ? escapeHtml(invoice.client.name) : '';
+    const safeAmountFormatted = escapeHtml(amountFormatted);
+    const safeDate = escapeHtml(new Date(invoice.date).toLocaleDateString('fr-FR'));
+    const safeDueDate = escapeHtml(new Date(invoice.dueDate).toLocaleDateString('fr-FR'));
+    const safePaymentLink = paymentLink ? escapeHtml(paymentLink) : '';
+
+    // Générer le contenu HTML de l'email avec sanitization
     const htmlContent = `
 <!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Facture ${invoice.number}</title>
+  <title>Facture ${safeInvoiceNumber}</title>
 </head>
 <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
   <div style="background-color: #f8f9fa; padding: 30px; border-radius: 8px;">
     <h1 style="color: #2563eb; margin-top: 0;">Votre facture est prête</h1>
     
     <p style="font-size: 16px; margin-bottom: 20px;">
-      Bonjour${invoice.client?.name ? ` ${invoice.client.name}` : ''},
+      Bonjour${safeClientName ? ` ${safeClientName}` : ''},
     </p>
     
     <p style="font-size: 16px; margin-bottom: 20px;">
-      Veuillez trouver ci-joint votre facture <strong>${invoice.number}</strong> d&apos;un montant de <strong>${amountFormatted}</strong>.
+      Veuillez trouver ci-joint votre facture <strong>${safeInvoiceNumber}</strong> d&apos;un montant de <strong>${safeAmountFormatted}</strong>.
     </p>
     
     <div style="background-color: white; padding: 20px; border-radius: 4px; margin: 20px 0;">
-      <p style="margin: 5px 0;"><strong>Numéro de facture :</strong> ${invoice.number}</p>
-      <p style="margin: 5px 0;"><strong>Date :</strong> ${new Date(invoice.date).toLocaleDateString('fr-FR')}</p>
-      <p style="margin: 5px 0;"><strong>Échéance :</strong> ${new Date(invoice.dueDate).toLocaleDateString('fr-FR')}</p>
-      <p style="margin: 5px 0;"><strong>Montant :</strong> ${amountFormatted}</p>
+      <p style="margin: 5px 0;"><strong>Numéro de facture :</strong> ${safeInvoiceNumber}</p>
+      <p style="margin: 5px 0;"><strong>Date :</strong> ${safeDate}</p>
+      <p style="margin: 5px 0;"><strong>Échéance :</strong> ${safeDueDate}</p>
+      <p style="margin: 5px 0;"><strong>Montant :</strong> ${safeAmountFormatted}</p>
     </div>
     
     ${paymentLink ? `
     <div style="text-align: center; margin: 30px 0;">
-      <a href="${paymentLink}" style="display: inline-block; background-color: #2563eb; color: white; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 16px;">
+      <a href="${safePaymentLink}" style="display: inline-block; background-color: #2563eb; color: white; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 16px;">
         Payer maintenant
       </a>
     </div>
     <p style="font-size: 14px; color: #666; text-align: center; margin-top: 10px;">
-      Ou copiez ce lien : <a href="${paymentLink}" style="color: #2563eb; word-break: break-all;">${paymentLink}</a>
+      Ou copiez ce lien : <a href="${safePaymentLink}" style="color: #2563eb; word-break: break-all;">${safePaymentLink}</a>
     </p>
     ` : ''}
     
@@ -323,10 +403,12 @@ export async function sendInvoiceEmail(invoiceId: string, email: string) {
     `.trim();
 
     // Envoyer l'email via Resend
+    // Utiliser une variable d'environnement pour l'email "from" si disponible
+    const fromEmail = process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev';
     const { data, error } = await getResend().emails.send({
-      from: 'onboarding@resend.dev',
+      from: fromEmail,
       to: email,
-      subject: `Facture disponible : ${invoice.number}`,
+      subject: `Facture disponible : ${safeInvoiceNumber}`,
       html: htmlContent,
     });
 
@@ -351,7 +433,7 @@ export async function sendInvoiceEmail(invoiceId: string, email: string) {
     await prisma.invoice.update({
       where: { id: invoiceId },
       data: {
-        status: 'SENT',
+        status: InvoiceStatusMap.SENT,
       },
     });
 
@@ -371,9 +453,16 @@ export async function sendInvoiceEmail(invoiceId: string, email: string) {
   }
 }
 
-export async function getAllClients() {
+export async function getAllClients(limit = 100, offset = 0) {
   try {
+    // Limiter le nombre de résultats pour éviter les problèmes de performance
+    const maxLimit = 100;
+    const safeLimit = Math.min(limit, maxLimit);
+    const safeOffset = Math.max(0, offset);
+
     const clients = await prisma.client.findMany({
+      take: safeLimit,
+      skip: safeOffset,
       orderBy: { createdAt: 'desc' },
       include: {
         _count: {
@@ -384,18 +473,32 @@ export async function getAllClients() {
       },
     });
 
-    return clients.map((client: any) => ({
-      id: client.id,
-      name: client.name,
-      email: client.email,
-      address: client.address,
-      vatNumber: client.vatNumber,
-      createdAt: client.createdAt.toISOString(),
-      invoiceCount: client._count.invoices,
-    }));
+    const total = await prisma.client.count();
+
+    return {
+      clients: clients.map((client: any) => ({
+        id: client.id,
+        name: client.name,
+        email: client.email,
+        address: client.address,
+        vatNumber: client.vatNumber,
+        createdAt: client.createdAt.toISOString(),
+        invoiceCount: client._count.invoices,
+      })),
+      total,
+      limit: safeLimit,
+      offset: safeOffset,
+      hasMore: safeOffset + safeLimit < total,
+    };
   } catch (error) {
     console.error('Error fetching clients:', error);
-    return [];
+    return {
+      clients: [],
+      total: 0,
+      limit: 0,
+      offset: 0,
+      hasMore: false,
+    };
   }
 }
 

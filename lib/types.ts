@@ -33,3 +33,11 @@ export type ChatMessage = {
 
 export type ProcessingState = 'idle' | 'listening' | 'transcribing' | 'processing' | 'error';
 
+export const InvoiceStatusMap = {
+  DRAFT: 'DRAFT',
+  SENT: 'SENT',
+  PAID: 'PAID',
+} as const;
+
+export type InvoiceStatus = typeof InvoiceStatusMap[keyof typeof InvoiceStatusMap];
+

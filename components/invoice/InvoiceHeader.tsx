@@ -1,10 +1,10 @@
 import { Invoice } from '@/lib/types';
 
-interface InvoiceHeaderProps {
+type InvoiceHeaderProps = {
   invoice: Invoice;
-}
+};
 
-export function InvoiceHeader({ invoice }: InvoiceHeaderProps) {
+export const InvoiceHeader = ({ invoice }: InvoiceHeaderProps) => {
   return (
     <div className="mb-8 flex justify-between border-b pb-6">
       <div className="flex-1">
@@ -29,5 +29,5 @@ export function InvoiceHeader({ invoice }: InvoiceHeaderProps) {
       </div>
     </div>
   );
-}
+};
 

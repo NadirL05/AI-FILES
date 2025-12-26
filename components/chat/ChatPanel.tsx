@@ -3,7 +3,9 @@
 import { ChatHistory } from './ChatHistory';
 import { ChatInput } from './ChatInput';
 
-export function ChatPanel() {
+type ChatPanelProps = Record<string, never>;
+
+export const ChatPanel = (_props: ChatPanelProps) => {
   return (
     <div className="flex h-full flex-col border-r bg-gray-50">
       <div className="border-b bg-white p-4">
@@ -15,5 +17,5 @@ export function ChatPanel() {
       <ChatInput />
     </div>
   );
-}
+};
 

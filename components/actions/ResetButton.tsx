@@ -16,7 +16,9 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 
-export function ResetButton() {
+type ResetButtonProps = Record<string, never>;
+
+export const ResetButton = (_props: ResetButtonProps) => {
   const resetInvoice = useInvoiceStore((state) => state.resetInvoice);
   const [open, setOpen] = useState(false);
 
@@ -48,5 +50,5 @@ export function ResetButton() {
       </AlertDialogContent>
     </AlertDialog>
   );
-}
+};
 

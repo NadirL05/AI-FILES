@@ -5,7 +5,9 @@ import { InvoiceHeader } from './InvoiceHeader';
 import { InvoiceItems } from './InvoiceItems';
 import { InvoiceFooter } from './InvoiceFooter';
 
-export function InvoicePreview() {
+type InvoicePreviewProps = Record<string, never>;
+
+export const InvoicePreview = (_props: InvoicePreviewProps) => {
   const invoice = useInvoiceStore((state) => state.invoice);
 
   return (
@@ -20,5 +22,5 @@ export function InvoicePreview() {
       </div>
     </div>
   );
-}
+};
 

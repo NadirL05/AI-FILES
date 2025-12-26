@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 import { Invoice } from '@/lib/types';
 import { prisma, prismaQuery } from '@/lib/db';
+import { userMessageSchema, invoiceSchema } from '@/lib/validation';
+import { checkGenerateRateLimit } from '@/lib/rate-limit';
 
 // Lazy initialization to avoid build-time errors
 let openai: OpenAI | null = null;
@@ -75,6 +77,26 @@ Format de réponse : JSON strict conforme au type Invoice suivant :
 
 export async function POST(request: NextRequest) {
   try {
+    // Rate limiting
+    const rateLimitResult = await checkGenerateRateLimit(request);
+    if (!rateLimitResult.success) {
+      return NextResponse.json(
+        {
+          error: 'Trop de requêtes. Veuillez réessayer plus tard.',
+          retryAfter: rateLimitResult.reset,
+        },
+        {
+          status: 429,
+          headers: {
+            'X-RateLimit-Limit': rateLimitResult.limit.toString(),
+            'X-RateLimit-Remaining': rateLimitResult.remaining.toString(),
+            'X-RateLimit-Reset': rateLimitResult.reset.toString(),
+            'Retry-After': rateLimitResult.reset.toString(),
+          },
+        }
+      );
+    }
+
     if (!process.env.OPENAI_API_KEY) {
       return NextResponse.json(
         { error: 'OPENAI_API_KEY is not configured' },
@@ -88,11 +110,23 @@ export async function POST(request: NextRequest) {
       currentInvoice: Invoice;
     };
 
-    if (!userMessage) {
+    // Validation du message utilisateur
+    try {
+      userMessageSchema.parse(userMessage);
+    } catch (validationError) {
       return NextResponse.json(
-        { error: 'No user message provided' },
+        { error: 'Message invalide. Longueur max: 5000 caractères.' },
         { status: 400 }
       );
+    }
+
+    // Validation basique de currentInvoice si fourni
+    if (currentInvoice) {
+      try {
+        invoiceSchema.partial().parse(currentInvoice);
+      } catch (validationError) {
+        console.warn('Invalid currentInvoice provided, continuing with empty invoice');
+      }
     }
 
     // Récupérer les données de contexte depuis la base de données
@@ -175,16 +209,25 @@ ${invoiceItems.length > 0
 
     let completion;
     try {
-      completion = await getOpenAI().chat.completions.create({
-        model: 'gpt-4o',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'system', content: contextMessage },
-          { role: 'user', content: userMessage },
-        ],
-        response_format: { type: 'json_object' },
-        temperature: 0.3, // Plus déterministe pour les données structurées
-      });
+      // Timeout de 30 secondes pour l'appel OpenAI
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000);
+
+      completion = await getOpenAI().chat.completions.create(
+        {
+          model: 'gpt-4o',
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'system', content: contextMessage },
+            { role: 'user', content: userMessage },
+          ],
+          response_format: { type: 'json_object' },
+          temperature: 0.3, // Plus déterministe pour les données structurées
+        },
+        { signal: controller.signal as any }
+      );
+
+      clearTimeout(timeoutId);
     } catch (openaiError) {
       console.error('OpenAI API error:', openaiError);
       const errorMessage = openaiError instanceof Error ? openaiError.message : 'Unknown OpenAI error';
@@ -228,21 +271,58 @@ ${invoiceItems.length > 0
       );
     }
 
-    // Validation basique
-    if (!invoice.items || !Array.isArray(invoice.items)) {
-      invoice.items = [];
+    // Validation stricte avec Zod
+    let validatedInvoice: Invoice;
+    try {
+      const parsed = invoiceSchema.parse(invoice);
+      // S'assurer que l'ID existe et convertir en type Invoice
+      validatedInvoice = {
+        id: parsed.id || crypto.randomUUID(),
+        status: parsed.status || 'draft',
+        sender: parsed.sender,
+        client: parsed.client,
+        date: parsed.date,
+        dueDate: parsed.dueDate,
+        items: parsed.items.map((item) => ({
+          ...item,
+          id: item.id || crypto.randomUUID(),
+        })),
+        currency: parsed.currency,
+        taxRate: parsed.taxRate,
+        notes: parsed.notes,
+      } as Invoice;
+    } catch (validationError: any) {
+      console.error('Invoice validation error:', validationError);
+      return NextResponse.json(
+        {
+          error: 'La réponse de l\'IA ne respecte pas le format attendu',
+          details: validationError.errors,
+        },
+        { status: 500 }
+      );
     }
 
-    // S'assurer que les IDs existent pour les nouvelles lignes
-    invoice.items = invoice.items.map((item) => ({
-      ...item,
-      id: item.id || crypto.randomUUID(),
-    }));
-
-    return NextResponse.json({ invoice });
+    return NextResponse.json(
+      { invoice: validatedInvoice },
+      {
+        headers: {
+          'X-RateLimit-Limit': rateLimitResult.limit.toString(),
+          'X-RateLimit-Remaining': rateLimitResult.remaining.toString(),
+          'X-RateLimit-Reset': rateLimitResult.reset.toString(),
+        },
+      }
+    );
   } catch (error) {
     console.error('Generation error:', error);
     
+    // Gérer les erreurs de timeout
+    if (error instanceof Error && error.name === 'AbortError') {
+      return NextResponse.json(
+        { error: 'Timeout: La requête a pris trop de temps. Réessayez avec un message plus court.' },
+        { status: 504 }
+      );
+    }
+
     // Retourner un message d'erreur plus détaillé
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     const isOpenAIError = errorMessage.includes('API key') || errorMessage.includes('OpenAI');

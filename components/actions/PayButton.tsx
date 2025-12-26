@@ -6,11 +6,11 @@ import { CreditCard, ExternalLink } from 'lucide-react';
 import { getInvoicePaymentLink } from '@/app/actions';
 import { toast } from 'sonner';
 
-interface PayButtonProps {
+type PayButtonProps = {
   invoiceId: string | null;
-}
+};
 
-export function PayButton({ invoiceId }: PayButtonProps) {
+export const PayButton = ({ invoiceId }: PayButtonProps) => {
   const [paymentLink, setPaymentLink] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -51,5 +51,5 @@ export function PayButton({ invoiceId }: PayButtonProps) {
       <ExternalLink className="ml-2 h-3 w-3" />
     </Button>
   );
-}
+};
 

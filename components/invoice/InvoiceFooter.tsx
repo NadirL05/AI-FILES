@@ -6,11 +6,11 @@ import {
   formatCurrency,
 } from '@/lib/calculations';
 
-interface InvoiceFooterProps {
+type InvoiceFooterProps = {
   invoice: Invoice;
-}
+};
 
-export function InvoiceFooter({ invoice }: InvoiceFooterProps) {
+export const InvoiceFooter = ({ invoice }: InvoiceFooterProps) => {
   const subtotal = calculateSubtotal(invoice.items);
   const tax = calculateTax(subtotal, invoice.taxRate);
   const total = calculateTotal(subtotal, tax);
@@ -68,5 +68,5 @@ export function InvoiceFooter({ invoice }: InvoiceFooterProps) {
       )}
     </div>
   );
-}
+};
 
