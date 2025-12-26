@@ -1,6 +1,14 @@
 'use server';
+import { PrismaClient } from '@prisma/client';
+
 // Configuration optimisée pour Vercel serverless avec gestion des prepared statements
 // Solution pour l'erreur "prepared statement already exists" (42P05)
+
+// Créer un objet global pour stocker l'instance Prisma
+const globalForPrisma = globalThis as unknown as {
+  prisma: PrismaClient | undefined;
+};
+
 export const prisma =
   globalForPrisma.prisma ??
   new PrismaClient({
