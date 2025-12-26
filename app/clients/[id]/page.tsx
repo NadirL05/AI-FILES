@@ -182,7 +182,7 @@ export default async function ClientDetailPage({
                     </tr>
                   </thead>
                   <tbody>
-                    {client.invoices.map((invoice) => (
+                    {client.invoices.map((invoice: any) => (
                       <tr
                         key={invoice.id}
                         className="border-b hover:bg-gray-50 transition-colors"

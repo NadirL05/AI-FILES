@@ -186,7 +186,7 @@ export default async function DashboardPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {stats.recentInvoices.map((invoice) => (
+                    {stats.recentInvoices.map((invoice: any) => (
                       <tr
                         key={invoice.id}
                         className="border-b hover:bg-gray-50 transition-colors"

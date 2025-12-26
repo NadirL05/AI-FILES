@@ -73,7 +73,7 @@ export default async function ClientsPage() {
           </Card>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {clients.map((client) => (
+            {clients.map((client: any) => (
               <Link key={client.id} href={`/clients/${client.id}`}>
                 <Card className="hover:shadow-lg transition-shadow cursor-pointer h-full">
                   <CardHeader>

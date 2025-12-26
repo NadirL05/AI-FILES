@@ -215,7 +215,7 @@ export async function getDashboardStats() {
       invoiceCount,
       clientCount,
       averageInvoiceValue,
-      recentInvoices: recentInvoices.map((invoice) => ({
+      recentInvoices: recentInvoices.map((invoice: any) => ({
         id: invoice.id,
         number: invoice.number,
         date: invoice.date.toISOString().split('T')[0],
@@ -380,7 +380,7 @@ export async function getAllClients() {
       },
     });
 
-    return clients.map((client) => ({
+    return clients.map((client: any) => ({
       id: client.id,
       name: client.name,
       email: client.email,
@@ -447,7 +447,7 @@ export async function getClientById(clientId: string) {
       address: client.address,
       vatNumber: client.vatNumber,
       createdAt: client.createdAt.toISOString(),
-      invoices: client.invoices.map((invoice) => ({
+      invoices: client.invoices.map((invoice: any) => ({
         id: invoice.id,
         number: invoice.number,
         date: invoice.date.toISOString().split('T')[0],

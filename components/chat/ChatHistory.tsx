@@ -53,7 +53,7 @@ export function ChatHistory() {
               <p
                 className={`mt-1 text-xs ${
                   message.role === 'user'
-                    ? 'text-primary-foreground/70'
+                    ? 'text-primary-foreground opacity-70'
                     : 'text-muted-foreground'
                 }`}
               >
