@@ -101,9 +101,9 @@ export async function POST(request: NextRequest) {
     let allInvoiceItems: Array<{ description: string; unitPrice: number; quantity: number }> = [];
 
     try {
-      [clients, allInvoiceItems] = await Promise.all([
+      const [clientsResult, allInvoiceItemsResult] = await Promise.all([
         // Récupérer les 20 derniers clients avec gestion d'erreur retry
-        prismaQuery(() =>
+        prismaQuery<Array<{ name: string; address: string | null; email: string | null; vatNumber: string | null }>>(() =>
           prisma.client.findMany({
             take: 20,
             orderBy: { createdAt: 'desc' },
@@ -116,7 +116,7 @@ export async function POST(request: NextRequest) {
           })
         ),
         // Récupérer les 50 derniers InvoiceItems pour avoir une bonne variété
-        prismaQuery(() =>
+        prismaQuery<Array<{ description: string; unitPrice: number; quantity: number }>>(() =>
           prisma.invoiceItem.findMany({
             take: 50,
             orderBy: { createdAt: 'desc' },
@@ -128,6 +128,8 @@ export async function POST(request: NextRequest) {
           })
         ),
       ]);
+      clients = clientsResult;
+      allInvoiceItems = allInvoiceItemsResult;
     } catch (dbError) {
       // Si erreur DB, continuer sans la knowledge base (mode dégradé)
       console.warn('Error fetching knowledge base from DB, continuing without it:', dbError);

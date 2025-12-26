@@ -31,12 +31,13 @@ export async function prismaQuery<T>(
   for (let i = 0; i <= retries; i++) {
     try {
       return await queryFn();
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const err = error as { code?: string; message?: string };
       // Si c'est l'erreur "prepared statement already exists", on réessaie
       if (
-        error?.code === '42P05' ||
-        error?.message?.includes('prepared statement') ||
-        error?.message?.includes('already exists')
+        err?.code === '42P05' ||
+        err?.message?.includes('prepared statement') ||
+        err?.message?.includes('already exists')
       ) {
         if (i < retries) {
           // Attendre un peu avant de réessayer
