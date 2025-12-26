@@ -129,6 +129,9 @@ export async function POST(request: NextRequest) {
       console.warn('Error fetching knowledge base from DB, continuing without it:', dbError);
       clients = [];
       allInvoiceItems = [];
+    } finally {
+      // Dans un environnement serverless, on ne disconnect PAS car les connexions sont réutilisées
+      // Le singleton pattern dans lib/db.ts gère déjà les connexions correctement
     }
 
     // Grouper les items par description unique (garder le plus récent pour chaque description)
