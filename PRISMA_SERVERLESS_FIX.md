@@ -14,10 +14,15 @@ Dans un environnement serverless, les connexions PostgreSQL sont réutilisées e
 - Évite la création de multiples instances de PrismaClient
 - Gestion automatique des connexions
 
+✅ **Fonction `prismaQuery` avec retry logic** :
+- Gère automatiquement les erreurs "prepared statement already exists" (42P05)
+- Retry automatique avec reconnexion en cas d'erreur
+- Utilisée dans `app/api/generate/route.ts` pour les requêtes critiques
+
 ### 2. Vérification des imports Prisma
 
 ✅ **Tous les fichiers utilisent le singleton** :
-- `app/api/generate/route.ts` : ✅ `import { prisma } from '@/lib/db'`
+- `app/api/generate/route.ts` : ✅ `import { prisma, prismaQuery } from '@/lib/db'` (avec retry)
 - `app/actions.ts` : ✅ `import { prisma } from '@/lib/db'`
 - Aucun `new PrismaClient()` direct trouvé
 
@@ -57,7 +62,7 @@ Dans Vercel Dashboard → Settings → Environment Variables :
 ## Notes importantes
 
 ### ❌ NE PAS faire :
-- **NE PAS** appeler `prisma.$disconnect()` dans les API routes serverless
+- **NE PAS** appeler `prisma.$disconnect()` manuellement dans les API routes serverless
   - Les connexions sont réutilisées entre les invocations
   - Disconnect puis reconnect ralentit les requêtes
   - Le singleton pattern gère déjà les connexions
@@ -65,10 +70,30 @@ Dans Vercel Dashboard → Settings → Environment Variables :
 - **NE PAS** utiliser `new PrismaClient()` directement dans les routes
 
 ### ✅ À faire :
-- **UTILISER** toujours `import { prisma } from '@/lib/db'`
+- **UTILISER** toujours `import { prisma } from '@/lib/db'` ou `import { prismaQuery } from '@/lib/db'`
+- **UTILISER** `prismaQuery()` pour les requêtes critiques dans les API routes (gère automatiquement les retries)
 - **UTILISER** le singleton pattern (déjà en place)
 - **CONFIGURER** correctement `DATABASE_URL` avec les paramètres de pool
 - **RÉUTILISER** les connexions entre les invocations (géré automatiquement)
+
+### 🔧 Utilisation de prismaQuery (pour les requêtes critiques)
+
+Pour les requêtes dans les API routes qui peuvent échouer avec "prepared statement already exists", utilisez `prismaQuery` :
+
+```typescript
+import { prismaQuery } from '@/lib/db';
+
+// Au lieu de :
+const clients = await prisma.client.findMany({...});
+
+// Utilisez :
+const clients = await prismaQuery(() => prisma.client.findMany({...}));
+```
+
+La fonction `prismaQuery` gère automatiquement :
+- Les erreurs "prepared statement already exists" (42P05)
+- Les retries avec reconnexion
+- Les timeouts
 
 ## Vérification
 

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 import { Invoice } from '@/lib/types';
-import { prisma } from '@/lib/db';
+import { prisma, prismaQuery } from '@/lib/db';
 
 // Lazy initialization to avoid build-time errors
 let openai: OpenAI | null = null;
@@ -102,36 +102,37 @@ export async function POST(request: NextRequest) {
 
     try {
       [clients, allInvoiceItems] = await Promise.all([
-        // Récupérer les 20 derniers clients
-        prisma.client.findMany({
-          take: 20,
-          orderBy: { createdAt: 'desc' },
-          select: {
-            name: true,
-            address: true,
-            email: true,
-            vatNumber: true,
-          },
-        }),
+        // Récupérer les 20 derniers clients avec gestion d'erreur retry
+        prismaQuery(() =>
+          prisma.client.findMany({
+            take: 20,
+            orderBy: { createdAt: 'desc' },
+            select: {
+              name: true,
+              address: true,
+              email: true,
+              vatNumber: true,
+            },
+          })
+        ),
         // Récupérer les 50 derniers InvoiceItems pour avoir une bonne variété
-        prisma.invoiceItem.findMany({
-          take: 50,
-          orderBy: { createdAt: 'desc' },
-          select: {
-            description: true,
-            unitPrice: true,
-            quantity: true,
-          },
-        }),
+        prismaQuery(() =>
+          prisma.invoiceItem.findMany({
+            take: 50,
+            orderBy: { createdAt: 'desc' },
+            select: {
+              description: true,
+              unitPrice: true,
+              quantity: true,
+            },
+          })
+        ),
       ]);
     } catch (dbError) {
       // Si erreur DB, continuer sans la knowledge base (mode dégradé)
       console.warn('Error fetching knowledge base from DB, continuing without it:', dbError);
       clients = [];
       allInvoiceItems = [];
-    } finally {
-      // Dans un environnement serverless, on ne disconnect PAS car les connexions sont réutilisées
-      // Le singleton pattern dans lib/db.ts gère déjà les connexions correctement
     }
 
     // Grouper les items par description unique (garder le plus récent pour chaque description)
